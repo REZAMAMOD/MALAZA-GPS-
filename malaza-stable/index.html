@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malaza Stable - Gestion Location GPS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* === MOBILE RESPONSIVE STYLES === */
+        
+        /* Par défaut - Desktop mode (garde tout comme avant) */
+        .mobile-only { display: none; }
+        .desktop-nav { display: flex; }
+        
+        /* Mobile breakpoint - Ajoute seulement les améliorations mobile */
+        @media (max-width: 768px) {
+            /* Cache navigation desktop, montre mobile */
+            .desktop-nav { display: none; }
+            .mobile-only { display: block; }
+            
+            /* Menu burger styles */
+            .burger-btn {
+                position: relative;
+                width: 30px;
+                height: 30px;
+                cursor: pointer;
+            }
+            
+            .burger-line {
+                position: absolute;
+                width: 20px;
+                height: 2px;
+                background: #374151;
+                transition: all 0.3s ease;
+                left: 5px;
+            }
+            
+            .burger-line:nth-child(1) { top: 8px; }
+            .burger-line:nth-child(2) { top: 14px; }
+            .burger-line:nth-child(3) { top: 20px; }
+            
+            .burger-active .burger-line:nth-child(1) {
+                transform: rotate(45deg);
+                top: 14px;
+            }
+            
+            .burger-active .burger-line:nth-child(2) {
+                opacity: 0;
+            }
+            
+            .burger-active .burger-line:nth-child(3) {
+                transform: rotate(-45deg);
+                top: 14px;
+            }
+            
+            /* Mobile drawer */
+            .mobile-drawer {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                width: 280px;
+                height: 100vh;
+                background: white;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+                transition: left 0.3s ease;
+                z-index: 1000;
+                overflow-y: auto;
+            }
+            
+            .mobile-drawer.open {
+                left: 0;
+            }
+            
+            .mobile-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s ease;
+            }
+            
+            .mobile-overlay.show {
+                opacity: 1;
+                visibility: visible;
+            }
+            
+            /* Mobile navigation buttons */
+            .mobile-nav-btn {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                padding: 15px 20px;
+                text-align: left;
+                border: none;
+                background: none;
+                font-size: 16px;
+                color: #374151;
+                transition: background-color 0.2s;
+                border-bottom: 1px solid #f3f4f6;
+            }
+            
+            .mobile-nav-btn:hover {
+                background-color: #f9fafb;
+            }
+            
+            .mobile-nav-btn.active {
+                background-color: #3b82f6;
+                color: white;
+            }
+            
+            .mobile-nav-btn i {
+                margin-right: 12px;
+                width: 20px;
+                text-align: center;
+            }
+            
+            /* Better mobile typography */
+            h1 {
+                font-size: 18px !important;
+            }
+            
+            /* Touch-friendly buttons */
+            button, .btn {
+                min-height: 44px;
+                padding: 12px 16px;
+            }
+            
+            /* Better mobile spacing */
+            .max-w-7xl {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+        }
+        
+        /* Very small screens - Bottom navigation */
+        @media (max-width: 480px) {
+            body {
+                padding-bottom: 80px;
+            }
+            
+            .bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: space-around;
+                padding: 8px 0;
+                z-index: 100;
+            }
+            
+            .bottom-nav-item {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 8px 4px;
+                text-decoration: none;
+                color: #6b7280;
+                font-size: 11px;
+                min-height: 60px;
+                justify-content: center;
+                transition: color 0.2s;
+            }
+            
+            .bottom-nav-item.active {
+                color: #3b82f6;
+            }
+            
+            .bottom-nav-item i {
+                font-size: 20px;
+                margin-bottom: 4px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay mobile-only" id="mobileOverlay"></div>
+
+    <!-- Mobile Drawer -->
+    <div class="mobile-drawer mobile-only" id="mobileDrawer">
+        <div class="p-4 border-b bg-gray-50">
+            <div class="flex items-center">
+                <i class="fas fa-map-marker-alt text-xl text-blue-600 mr-3"></i>
+                <h2 class="text-lg font-bold text-gray-900">Navigation</h2>
+            </div>
+        </div>
+        
+        <div class="py-2">
+            <button onclick="selectModule('dashboard')" class="mobile-nav-btn active" data-module="dashboard">
+                <i class="fas fa-chart-dashboard"></i>
+                Tableau de bord
+            </button>
+            <button onclick="selectModule('clients')" class="mobile-nav-btn" data-module="clients">
+                <i class="fas fa-users"></i>
+                Clients
+            </button>
+            <button onclick="selectModule('gps')" class="mobile-nav-btn" data-module="gps">
+                <i class="fas fa-satellite"></i>
+                GPS
+            </button>
+            <button onclick="selectModule('sim')" class="mobile-nav-btn" data-module="sim">
+                <i class="fas fa-sim-card"></i>
+                Cartes SIM
+            </button>
+            <button onclick="selectModule('locations')" class="mobile-nav-btn" data-module="locations">
+                <i class="fas fa-map-pin"></i>
+                Locations
+            </button>
+            <button onclick="selectModule('paiements')" class="mobile-nav-btn" data-module="paiements">
+                <i class="fas fa-money-bill"></i>
+                Paiements
+            </button>
+            <button onclick="selectModule('caisse')" class="mobile-nav-btn" data-module="caisse">
+                <i class="fas fa-cash-register"></i>
+                Caisse
+            </button>
+            <button onclick="selectModule('promotions')" class="mobile-nav-btn" data-module="promotions">
+                <i class="fas fa-tags"></i>
+                Promotions
+            </button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <!-- Mobile burger menu -->
+                    <div class="mobile-only mr-3">
+                        <div class="burger-btn" id="burgerBtn">
+                            <div class="burger-line"></div>
+                            <div class="burger-line"></div>
+                            <div class="burger-line"></div>
+                        </div>
+                    </div>
+                    
+                    <i class="fas fa-map-marker-alt text-2xl text-blue-600"></i>
+                    <h1 class="ml-2 text-xl font-bold text-gray-900">Malaza Track GPS</h1>
+                    <span class="ml-4 px-2 py-1 text-xs bg-green-100 text-green-800 rounded hidden sm:inline">Firebase Edition</span>
+                </div>
+                <div class="flex items-center space-x-4" id="userInfo">
+                    <span class="text-sm text-gray-600 hidden sm:inline" id="currentDate"></span>
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span class="text-white text-sm font-medium">M</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs (Desktop) -->
+    <nav class="desktop-nav max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="flex space-x-8 mb-8" id="navTabs">
+            <button onclick="showModule('dashboard')" class="nav-btn active flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-chart-dashboard mr-2"></i>
+                Tableau de bord
+            </button>
+            <button onclick="showModule('clients')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-users mr-2"></i>
+                Clients
+            </button>
+            <button onclick="showModule('gps')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-satellite mr-2"></i>
+                GPS
+            </button>
+            <button onclick="showModule('sim')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-sim-card mr-2"></i>
+                Cartes SIM
+            </button>
+            <button onclick="showModule('locations')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-map-pin mr-2"></i>
+                Locations
+            </button>
+            <button onclick="showModule('paiements')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-money-bill mr-2"></i>
+                Paiements
+            </button>
+            <button onclick="showModule('caisse')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-cash-register mr-2"></i>
+                Caisse
+            </button>
+            <button onclick="showModule('promotions')" class="nav-btn flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors">
+                <i class="fas fa-tags mr-2"></i>
+                Promotions
+            </button>
+        </div>
+    </nav>
+
+    <!-- Bottom Navigation (Very Small Screens) -->
+    <div class="bottom-nav" style="display: none;">
+        <a href="#" onclick="selectModule('dashboard'); return false;" class="bottom-nav-item active" data-module="dashboard">
+            <i class="fas fa-chart-dashboard"></i>
+            <span>Home</span>
+        </a>
+        <a href="#" onclick="selectModule('clients'); return false;" class="bottom-nav-item" data-module="clients">
+            <i class="fas fa-users"></i>
+            <span>Clients</span>
+        </a>
+        <a href="#" onclick="selectModule('locations'); return false;" class="bottom-nav-item" data-module="locations">
+            <i class="fas fa-map-pin"></i>
+            <span>Locations</span>
+        </a>
+        <a href="#" onclick="selectModule('paiements'); return false;" class="bottom-nav-item" data-module="paiements">
+            <i class="fas fa-money-bill"></i>
+            <span>Pay</span>
+        </a>
+        <a href="#" onclick="selectModule('caisse'); return false;" class="bottom-nav-item" data-module="caisse">
+            <i class="fas fa-cash-register"></i>
+            <span>Caisse</span>
+        </a>
+    </div>
+
+    <!-- Content Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div id="moduleContainer">
+            <!-- Le contenu des modules sera chargé ici -->
+        </div>
+    </div>
+
+    <!-- Scripts Firebase - AVANT les autres scripts -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBca-iMVgBiLwKOfeu6WiG5yPvYKrIpBOw",
+            authDomain: "malaza-track-gps.firebaseapp.com",
+            projectId: "malaza-track-gps",
+            storageBucket: "malaza-track-gps.firebasestorage.app",
+            messagingSenderId: "947117963692",
+            appId: "1:947117963692:web:57d111f1115f8bf093a209"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Rendre la base de données accessible globalement
+        window.firebaseDB = db;
+        window.firebaseAuth = auth;
+
+        // Fonction pour mettre à jour la date
+        function updateCurrentDate() {
+            const dateElement = document.getElementById('currentDate');
+            if (dateElement) {
+                dateElement.textContent = new Date().toLocaleDateString('fr-FR', { 
+                    month: 'long', 
+                    year: 'numeric' 
+                });
+            }
+        }
+
+        // Vérifier si l'utilisateur est connecté
+        auth.onAuthStateChanged((user) => {
+            if (!user) {
+                // Pas connecté, rediriger vers login
+                window.location.href = 'login.html';
+            } else {
+                // Connecté, afficher l'email
+                console.log('Utilisateur connecté:', user.email);
+                // Mettre à jour l'interface
+                updateUserInterface(user);
+            }
+        });
+
+        // Fonction pour mettre à jour l'interface utilisateur
+        function updateUserInterface(user) {
+            const userInfoDiv = document.getElementById('userInfo');
+            if (userInfoDiv) {
+                userInfoDiv.innerHTML = `
+                    <span class="text-sm text-gray-600 hidden sm:inline" id="currentDate"></span>
+                    <span class="text-sm text-gray-600 mr-3 hidden sm:inline">${user.email}</span>
+                    <button onclick="logout()" class="text-sm text-red-600 hover:text-red-800 mr-3 flex items-center">
+                        <i class="fas fa-sign-out-alt mr-1"></i>
+                        <span class="hidden sm:inline">Déconnexion</span>
+                    </button>
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span class="text-white text-sm font-medium">${user.email.charAt(0).toUpperCase()}</span>
+                    </div>
+                `;
+                // Remettre à jour la date
+                updateCurrentDate();
+            }
+        }
+
+        // Fonction de déconnexion
+        function logout() {
+            if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
+                auth.signOut().then(() => {
+                    localStorage.removeItem('malaza_user');
+                    window.location.href = 'login.html';
+                }).catch((error) => {
+                    console.error('Erreur lors de la déconnexion:', error);
+                    showAlert('Erreur lors de la déconnexion', 'error');
+                });
+            }
+        }
+    </script>
+
+    <!-- Scripts de l'application -->
+    <script src="js/init.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/clients.js"></script>
+    <script src="js/gps.js"></script>
+    <script src="js/sim.js"></script>
+    <script src="js/locations.js"></script>
+    <script src="js/paiements.js"></script>
+    <script src="js/caisse.js"></script>
+    <script src="js/promotions.js"></script>
+
+    <script>
+        // === MOBILE NAVIGATION LOGIC ===
+        let mobileDrawerOpen = false;
+
+        function initMobileNavigation() {
+            const burgerBtn = document.getElementById('burgerBtn');
+            const mobileDrawer = document.getElementById('mobileDrawer');
+            const mobileOverlay = document.getElementById('mobileOverlay');
+            const bottomNav = document.querySelector('.bottom-nav');
+
+            // Show bottom nav on very small screens
+            function checkScreenSize() {
+                if (window.innerWidth <= 480) {
+                    bottomNav.style.display = 'flex';
+                } else {
+                    bottomNav.style.display = 'none';
+                }
+            }
+
+            checkScreenSize();
+            window.addEventListener('resize', checkScreenSize);
+
+            // Burger menu toggle
+            burgerBtn?.addEventListener('click', function() {
+                mobileDrawerOpen = !mobileDrawerOpen;
+                
+                if (mobileDrawerOpen) {
+                    mobileDrawer.classList.add('open');
+                    mobileOverlay.classList.add('show');
+                    burgerBtn.classList.add('burger-active');
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    closeMobileDrawer();
+                }
+            });
+
+            // Close on overlay click
+            mobileOverlay?.addEventListener('click', closeMobileDrawer);
+
+            function closeMobileDrawer() {
+                mobileDrawerOpen = false;
+                mobileDrawer.classList.remove('open');
+                mobileOverlay.classList.remove('show');
+                burgerBtn.classList.remove('burger-active');
+                document.body.style.overflow = '';
+            }
+
+            // Global function for mobile module selection
+            window.selectModule = function(module) {
+                // Close mobile drawer
+                closeMobileDrawer();
+                
+                // Update mobile navigation states
+                document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                document.querySelectorAll(`[data-module="${module}"]`).forEach(btn => {
+                    btn.classList.add('active');
+                });
+                
+                // Call the original showModule function
+                if (typeof window.showModule === 'function') {
+                    window.showModule(module);
+                }
+                
+                // Update desktop navigation too
+                document.querySelectorAll('#navTabs .nav-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                document.querySelectorAll(`#navTabs [onclick*="${module}"]`).forEach(btn => {
+                    btn.classList.add('active');
+                });
+            };
+        }
+
+        // === ORIGINAL FUNCTIONALITY (PRESERVED) ===
+
+        // Vérifier le chargement des modules
+        console.log('Scripts chargés. Vérification des modules...');
+        console.log('Dashboard disponible:', typeof getDashboardHTML !== 'undefined');
+        console.log('Clients disponible:', typeof getClientsHTML !== 'undefined');
+
+        // Initialisation au chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM chargé, initialisation...');
+            updateCurrentDate();
+            initMobileNavigation();
+            // La fonction showModule() est maintenant gérée uniquement dans app.js
+        });
+    </script>
+</body>
+</html>
